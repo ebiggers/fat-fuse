@@ -1,0 +1,39 @@
+This is a simple FUSE (Filesystem in Userspace) driver for FAT12/16/32.   It
+only supports read-only mounts and does not have support for VFAT (long
+filenames extension).  To compile 'fat-fuse' you need to install the
+'libfuse-dev' package if it's not already installed.  To try it, do something
+like:
+
+$ cd fat-fuse
+$ make
+$ mkdir mnt
+$ ./fat-fuse ../floppy.img mnt -o ro
+$ ls -R mnt
+$ cat mnt/README
+$ fusermount -u mnt
+
+The filesystem operations are defined in fat_fuse_ops.c.  They rely on code in
+fat_volume.c and fat_file.c.
+
+Other notes about the fat-fuse program:
+
+* The file allocation table is mapped into memory with mmap().  Other data in
+  the filesystem, such as cluster data, are read with pread().
+
+* Whenever the child of a directory is needed, all children are read at the same
+  time and inserted into a balanced binary tree of that directory's children,
+  sorted by name (including extension, if present).  The children of a directory
+  are freed at a later time if they are no longer in use and the number of
+  allocated files has exceeded a soft limit.
+
+* Whenever a file with no current open file descriptors is opened, a table is
+  allocated to map cluster indices of that file to actual clusters.  When a read
+  at a given offset is requested, all previous entries in the table up until the
+  entry needed to complete the read are read from the FAT.  When a file is
+  closed for the last time, its table of clusters is freed.
+
+* The filesystem code is not thread-safe, so concurrent filesystem operations
+  will be serialized.
+
+* The filesystem code does not try to detect cyclic directory structures (which
+  are possible in FAT).  It will just recurse indefinitely.
